@@ -1,4 +1,3 @@
-//! src/routes/subscriptions.rs
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use sqlx::PgPool;
