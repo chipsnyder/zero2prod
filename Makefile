@@ -7,7 +7,7 @@ sqlx_offline:
 build:
 	docker build --tag zero2prod --file Dockerfile .
 
-run:
+run: build
 	docker run \
 	--rm \
 	-p 8000:8000 \
