@@ -3,10 +3,10 @@ use crate::email_client::EmailClient;
 use crate::startup::ApplicationBaseUrl;
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
-use sqlx::{Postgres, PgPool, Transaction};
-use uuid::Uuid;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
+use sqlx::{PgPool, Postgres, Transaction};
+use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -53,8 +53,8 @@ pub async fn subscribe(
     };
     let subscription_token = generate_subscription_token();
     if store_token(&mut transaction, subscriber_id, &subscription_token)
-    .await
-    .is_err()
+        .await
+        .is_err()
     {
         return HttpResponse::InternalServerError().finish();
     }
@@ -63,9 +63,14 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     }
 
-    if send_confirmation_email(&email_client, new_subscriber, &base_url.0, &subscription_token)
-        .await
-        .is_err()
+    if send_confirmation_email(
+        &email_client,
+        new_subscriber,
+        &base_url.0,
+        &subscription_token,
+    )
+    .await
+    .is_err()
     {
         return HttpResponse::InternalServerError().finish();
     }
@@ -107,12 +112,11 @@ pub async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
     base_url: &str,
-    subscription_token: &str
+    subscription_token: &str,
 ) -> Result<(), reqwest::Error> {
     let confirmation_link = format!(
         "{}/subscriptions/confirm?subscription_token={}",
-        base_url,
-        subscription_token,
+        base_url, subscription_token,
     );
     email_client
         .send_email(
@@ -138,7 +142,7 @@ pub async fn send_confirmation_email(
 pub async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
-    subscription_token: &str
+    subscription_token: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"INSERT INTO subscription_tokens(subscription_token, subscriber_id)
@@ -148,7 +152,7 @@ pub async fn store_token(
     )
     .execute(transaction)
     .await
-    .map_err(|e|{
+    .map_err(|e| {
         tracing::error!("Failed to execute query:{:?}", e);
         e
     })?;
@@ -157,8 +161,8 @@ pub async fn store_token(
 
 fn generate_subscription_token() -> String {
     let mut rng = thread_rng();
-    std::iter::repeat_with(||rng.sample(Alphanumeric))
-    .map(char::from)
-    .take(25)
-    .collect()
+    std::iter::repeat_with(|| rng.sample(Alphanumeric))
+        .map(char::from)
+        .take(25)
+        .collect()
 }
