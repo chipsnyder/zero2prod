@@ -1,3 +1,4 @@
+use argon2::password_hash::SaltString;
 use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
@@ -5,7 +6,7 @@ use wiremock::MockServer;
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
 use zero2prod::startup::{get_connection_pool, Application};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
-use sha3::Digest;
+use argon2::{Algorithm, Argon2, Params, PasswordHasher, Version};
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let default_filter_level = "info".to_string();
@@ -92,10 +93,16 @@ impl TestUser {
     }
 
     async fn store(&self, pool: &PgPool){
-        let password_hash = sha3::Sha3_256::digest(
-            self.password.as_bytes()
-                                                  );
-        let password_hash = format!("{:x}", password_hash);
+        let salt = SaltString::generate(&mut rand::thread_rng());
+        let password_hash = Argon2::new(
+            Algorithm::Argon2id,
+            Version::V0x13,
+            Params::new(15000, 2, 1, None).unwrap(),
+                                       )
+            .hash_password(self.password.as_bytes(), &salt)
+            .unwrap()
+            .to_string();
+
         sqlx::query!(
             "INSERT INTO users(user_id,username,password_hash)
             VALUES($1,$2,$3)",
